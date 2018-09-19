@@ -3,20 +3,24 @@
 int main(int argc, char const *argv[])
 {
     /* code */
-    FILE *fp;
-    int c;
+    for(int i=1;i<argc;i++){
+        FILE *fp;
+        int c;
 
-    fp = fopen(argv[1], "r");
-    if (fp == NULL) {
-        printf(argv[0] +": " + argv[1] + ": No such file or directory\n");
-        return 1;
-    }
+        fp = fopen(argv[i], "r");
+        if (fp == NULL) {
+            printf("cannot open file\n");
+            return 1;
+        }
 
-    while((c= fgetc(fp)) != EOF){
-        putchar(c);
-    }
-    fclose(fp);
+        while((c= fgetc(fp)) != EOF){
+            putchar(c);
+        }
+        fclose(fp);
+        if(i<argc){
+            printf("\n");
+            }
+        }
     return 0;
 }
-
 
