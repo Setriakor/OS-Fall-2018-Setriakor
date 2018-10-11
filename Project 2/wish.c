@@ -92,7 +92,14 @@ int main(int argc, char const *argv[])
         else if (strcmp(arg1, "cd") == 0)
         {
             arg2 = strtok_r(NULL, " ", &buffer1);
-            arg2[strlen(arg2) - 1] = 0;
+            char *arg3=strtok_r(NULL, " ", &buffer1);
+            if(arg2 == NULL){
+                printf("argument not found\n");
+            }else if(arg3 != NULL){
+                printf("too many arguments\n");
+            }
+            else{
+                arg2[strlen(arg2) - 1] = 0;
             if (chdir(arg2) == 0)
             {
                 printf("changed path\n");
@@ -100,6 +107,7 @@ int main(int argc, char const *argv[])
             else
             {
                 printf("unable to find path\n");
+            }
             }
             prt(mode,prompt);
         }
