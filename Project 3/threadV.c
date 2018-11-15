@@ -1,0 +1,268 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+
+struct arguments
+{
+    char *inst;
+    char *prompt;
+    int mode;
+    int argSize;
+    char *argArr[];
+};
+
+void prt(int batch, char *prompt)
+{
+    if (batch != 1)
+    {
+        printf(prompt);
+    }
+}
+
+void *exe(void *life) //char *inst, char *argArr[], char *prompt, int mode, int argSize)
+{
+    struct arguments *mainLife;
+    mainLife = (struct arguments *)life;
+
+    char *inst = mainLife->inst;
+    char *prompt = mainLife->prompt;
+    int mode = mainLife->mode;
+    int argSize = mainLife->argSize;
+    int child_pid = fork();
+    if (child_pid == 0)
+    {
+        /* This is done by the child process. */
+        if (strcmp(mainLife->argArr[argSize - 3], ">") == 0)
+        {
+            int fp = open(mainLife->argArr[argSize - 2], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+            dup2(fp, 1);
+            mainLife->argArr[argSize - 2] = NULL;
+            mainLife->argArr[argSize - 3] = NULL;
+        }
+        //execv(inst, mainLife->argArr);
+
+        /* If execv returns, it must have failed. */
+
+        printf("Unknown command\n");
+        exit(0);
+    }
+    else
+    {
+        /* This is run by the parent.  Wait for the child
+        to terminate. */
+        int wc = wait(NULL);
+        prt(mode, prompt);
+    }
+}
+
+// void mExe(char *fCom, char *mArr[], int numComs, char prompt)
+// {
+//     pthread_t threads[numComs];
+//     int thread_args[numComs];
+//     int rc, i;
+//     struct args *data = (struct thread_data *) threadarg;
+
+//     /* spawn the threads */
+//     for (i = 0; i < numComs; ++i)
+//     {
+//         thread_args[i] = i;
+//         //printf("spawning thread %d\n", i);
+//         rc = pthread_create(&threads[i], NULL, exe, (void *)&thread_args[i]);
+//     }
+// }
+
+int main(int argc, char const *argv[])
+{
+    FILE *fp;
+    char *buffer;
+    char *buffer1;
+    char *arg1;
+    char *arg2;
+    char *prompt;
+    char *path;
+    char *paths;
+    char *root;
+    char *com;
+    char *copy;
+    int mode;
+    size_t bufsize = 32;
+
+    buffer = (char *)malloc(bufsize * sizeof(char));
+    prompt = (char *)malloc(bufsize * sizeof(char));
+    path = (char *)malloc(bufsize * sizeof(char));
+    paths = (char *)malloc(bufsize * sizeof(char));
+    arg2 = (char *)malloc(bufsize * sizeof(char));
+    com = (char *)malloc(bufsize * sizeof(char));
+    root = (char *)malloc(bufsize * sizeof(char));
+    copy = (char *)malloc(bufsize * sizeof(char));
+
+    strcpy(path, "/bin");
+    prompt = "wish> ";
+    if (argc == 1)
+    {
+        fp = stdin;
+        printf(prompt);
+        mode = 0;
+    }
+    else if (argc == 2)
+    {
+        fp = fopen(argv[1], "r");
+        if (fp == NULL)
+        {
+            printf("cannot open file\n");
+            return 1;
+        }
+        mode = 1;
+    }
+    else
+    {
+        return 1;
+    }
+    while (getline(&buffer, &bufsize, fp) != -1)
+    {
+        buffer1 = buffer;
+        arg1 = strtok_r(buffer1, " ", &buffer1);
+
+        if (strcmp(arg1, "exit\n") == 0)
+        {
+            exit(0);
+        }
+        else if (strcmp(arg1, "cd") == 0)
+        {
+            arg2 = strtok_r(NULL, " ", &buffer1);
+            char *arg3 = strtok_r(NULL, " ", &buffer1);
+            if (arg2 == NULL)
+            {
+                printf("argument not found\n");
+            }
+            else if (arg3 != NULL)
+            {
+                printf("too many arguments\n");
+            }
+            else
+            {
+                arg2[strlen(arg2) - 1] = 0;
+                if (chdir(arg2) == 0)
+                {
+                    printf("changed path\n");
+                }
+                else
+                {
+                    printf("unable to find path\n");
+                }
+            }
+            prt(mode, prompt);
+        }
+        else if (strcmp(arg1, "path") == 0)
+        {
+            buffer1[strlen(buffer1) - 1] = 0;
+            strcpy(path, buffer1);
+            printf(path);
+            printf("\n");
+            prt(mode, prompt);
+        }
+        else
+        {
+            int reg = 1;
+            strcpy(paths, path);
+            arg2 = strtok_r(paths, " ", &paths);
+            if (arg1[strlen(arg1) - 1] == '\n')
+            {
+                arg1[strlen(arg1) - 1] = 0;
+                while (arg2 != NULL)
+                {
+                    strcpy(com, arg2);
+                    strcat(com, "/");
+                    strcat(com, arg1);
+                    if (access(com, X_OK) == 0)
+                    {
+                        reg = 0;
+                        break;
+                    }
+                    else
+                    {
+                        arg2 = strtok_r(NULL, " ", &paths);
+                    }
+                }
+                if (reg == 1)
+                {
+                    strcpy(com, "unknown");
+                }
+                char *args = {NULL};
+                //exe(arg1, args, prompt, mode, 2);
+            }
+            else
+            {
+                int multi = 1;
+                while (arg2 != NULL)
+                {
+                    strcpy(com, arg2);
+                    strcat(com, "/");
+                    strcat(com, arg1);
+                    if (access(com, X_OK) == 0)
+                    {
+                        reg = 0;
+                        break;
+                    }
+                    else
+                    {
+                        arg2 = strtok_r(NULL, " ", &paths);
+                    }
+                }
+                if (reg == 1)
+                {
+                    strcpy(com, "unknown");
+                }
+                strcpy(copy, buffer1);
+                int i = 2;
+                char *count = strtok_r(copy, " ", &copy);
+                while (count != NULL)
+                {
+                    i++;
+                    count = strtok_r(NULL, " ", &copy);
+                }
+                char *args[i];
+                args[0] = arg1;
+                for (int k = 1; k < i - 1; k++)
+                {
+                    arg2 = strtok_r(NULL, " ", &buffer1);
+                    args[k] = arg2;
+                    if (strcmp(arg2, "&") == 0)
+                    {
+                        multi++;
+                    }
+                    if (k == (i - 2))
+                    {
+                        arg2[strlen(arg2) - 1] = 0;
+                        args[k] = arg2;
+                    }
+                }
+                args[i - 1] = 0;
+                if (multi == 1)
+                {
+                    size_t size = i;
+                    struct arguments *data = (struct arguments *)malloc(sizeof(struct arguments) + sizeof(char *) * size);
+                    data->inst = arg1;
+                    data->prompt = prompt;
+                    data->mode = mode;
+                    data->argSize = i;
+                    for (int l = 0; l < i; l++)
+                    {
+                        data->argArr[l] = args[l];
+                    }
+                    exe((void *)&data);
+                }
+                else
+                {
+                    //mExec(arg1,args, multi, prompt);
+                }
+            }
+        }
+    }
+    return 0;
+}
