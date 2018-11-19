@@ -33,18 +33,19 @@ void *exe(void *life) //char *inst, char *argArr[], char *prompt, int mode, int 
     char *prompt = mainLife->prompt;
     int mode = mainLife->mode;
     int argSize = mainLife->argSize;
+    char ** ar= mainLife->argArr;
     int child_pid = fork();
     if (child_pid == 0)
     {
         /* This is done by the child process. */
-        if (strcmp(mainLife->argArr[argSize - 3], ">") == 0)
+        if (strcmp(ar[argSize - 3], ">") == 0)
         {
-            int fp = open(mainLife->argArr[argSize - 2], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+            int fp = open(ar[argSize - 2], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
             dup2(fp, 1);
-            mainLife->argArr[argSize - 2] = NULL;
-            mainLife->argArr[argSize - 3] = NULL;
+            ar[argSize - 2] = NULL;
+            ar[argSize - 3] = NULL;
         }
-        //execv(inst, mainLife->argArr);
+        execv(inst, ar);
 
         /* If execv returns, it must have failed. */
 

@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 void prt(int batch, char *prompt)
 {
@@ -13,10 +14,34 @@ void prt(int batch, char *prompt)
         printf(prompt);
     }
 }
+void run(void *tArgs)
+{
+    char **args;
+    args = (char **)tArgs;
+    int child_pid = fork();
+    // printf(args[0]);
+    // printf(args[1]);
+    // usleep(5000000);
+    if (child_pid == 0)
+    {
+        /* This is done by the child process. */
+        execvp(args[0], args);
+
+        /* If execv returns, it must have failed. */
+
+        printf("Unknown command\n");
+        exit(0);
+    }
+    else
+    {
+        /* This is run by the parent.  Wait for the child
+        to terminate. */
+        int wc = wait(NULL);
+    }
+}
 
 void exe(char *inst, const char *argArr[], char *prompt, int mode, int argSize)
 {
-    char error_message[30] = "An error has occurred\n";
     int child_pid = fork();
     if (child_pid == 0)
     {
@@ -32,7 +57,7 @@ void exe(char *inst, const char *argArr[], char *prompt, int mode, int argSize)
 
         /* If execv returns, it must have failed. */
 
-        write(STDERR_FILENO, error_message, strlen(error_message));
+        printf("Unknown command\n");
         exit(0);
     }
     else
@@ -44,81 +69,59 @@ void exe(char *inst, const char *argArr[], char *prompt, int mode, int argSize)
     }
 }
 
-void multiExe(char *allArgs[], int numComs, int sizeAA, char *prompt1, int mode)
+void mExe(char *allArgs[], int numComs, int size, char *prompt, int mode)
 {
-    char error_message[30] = "An error has occurred\n";
-    int child_pid = fork();
-    if (child_pid < 0)
+    pthread_t threads[numComs];
+    int rc;
+    int t = 0;
+    for (int i = 0; i < size; i++)
     {
-        printf("failed");
-    }
-    else if (child_pid == 0)
-    {
-        //printf("working");
-        for (int i = 0; i < sizeAA; i++)
+        char *command = allArgs[i];
+        int numArgs = 1;
+        for (int k = i + 1; k < size; k++)
         {
-            char *command = allArgs[i];
-            //printf(command);
-            int numArgs = 1;
-            for (int k = i + 1; k < sizeAA; k++)
+            if (strcmp(allArgs[k], "&") == 0)
             {
-                if (strcmp(allArgs[k], "&") == 0)
-                {
-                    break;
-                }
-                numArgs++;
+                break;
             }
-            if (numArgs == 1)
+            numArgs++;
+        }
+        if (numArgs == 1)
+        {
+            char *miniArgs = {NULL};
+            rc = pthread_create(&threads[t], NULL, run, (void *)miniArgs);
+            t++;
+        }
+        else
+        {
+            char *miniArgs[numArgs + 1];
+            miniArgs[0] = command;
+            for (int j = 1; j < numArgs + 1; j++)
             {
-                char *miniArgs = {NULL};
-                pid_t child1;
-                if (!(child1 = fork()))
+                if (j == numArgs)
                 {
-                    execvp(command, miniArgs);
-                    exit(0);
-                }
-            }
-            else
-            {
-                char *miniArgs[numArgs + 1];
-                miniArgs[0] = command;
-                for (int j = 1; j < numArgs + 1; j++)
-                {
-                    if (j == numArgs)
-                    {
-                        if (i == sizeAA - 1)
+                    if (i == size - 1)
                     {
                         miniArgs[strlen(allArgs[i + 1]) - 1] = 0;
                         miniArgs[j] = allArgs[i + 1];
                     }
-                    }
-                    else
-                    {
-                        miniArgs[j] = allArgs[i + 1];
-                        // printf(miniArgs[j]);
-                        // printf("\n");
-                    }
+                    //printf(command);
+                    //printf("\n");
                 }
-                miniArgs[numArgs] = 0;
-                pid_t child1;
-                if (!(child1 = fork()))
+                else
                 {
-                    execvp(command, miniArgs);
-                    write(STDERR_FILENO, error_message, strlen(error_message));
-                    exit(0);
+                    miniArgs[j] = allArgs[i + 1];
+                    //printf(miniArgs[j]);
+                    //printf("\n");
                 }
             }
-            // printf("%d",i);
-            // printf("\n");
-            i += numArgs;
+            miniArgs[numArgs] = 0;
+            rc = pthread_create(&threads[t], NULL, run, (void *)miniArgs);
+            t++;
         }
+        i += numArgs;
     }
-    else
-    {
-        //printf("not working");
-        int wc = wait(NULL);
-        prt(mode, prompt1);
-    }
+    prt(1,prompt);
 }
 
 int main(int argc, char const *argv[])
@@ -146,8 +149,6 @@ int main(int argc, char const *argv[])
     root = (char *)malloc(bufsize * sizeof(char));
     copy = (char *)malloc(bufsize * sizeof(char));
 
-    char error_message[30] = "An error has occurred\n";
-
     strcpy(path, "/bin");
     prompt = "wish> ";
     if (argc == 1)
@@ -161,7 +162,7 @@ int main(int argc, char const *argv[])
         fp = fopen(argv[1], "r");
         if (fp == NULL)
         {
-            write(STDERR_FILENO, error_message, strlen(error_message));
+            printf("cannot open file\n");
             return 1;
         }
         mode = 1;
@@ -185,11 +186,11 @@ int main(int argc, char const *argv[])
             char *arg3 = strtok_r(NULL, " ", &buffer1);
             if (arg2 == NULL)
             {
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                printf("argument not found\n");
             }
             else if (arg3 != NULL)
             {
-                write(STDERR_FILENO, error_message, strlen(error_message));
+                printf("too many arguments\n");
             }
             else
             {
@@ -200,7 +201,7 @@ int main(int argc, char const *argv[])
                 }
                 else
                 {
-                    write(STDERR_FILENO, error_message, strlen(error_message));
+                    printf("unable to find path\n");
                 }
             }
             prt(mode, prompt);
@@ -273,7 +274,7 @@ int main(int argc, char const *argv[])
                     i++;
                     count = strtok_r(NULL, " ", &copy);
                 }
-                const char *args[i];
+                char *args[i];
                 args[0] = arg1;
                 for (int k = 1; k < i - 1; k++)
                 {
@@ -296,8 +297,7 @@ int main(int argc, char const *argv[])
                 }
                 else
                 {
-                    //printf("%d", i);
-                    multiExe(args, multi, i - 1, prompt, mode);
+                    mExe(args, multi, i - 1, prompt, mode);
                 }
             }
         }
