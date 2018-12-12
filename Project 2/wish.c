@@ -17,7 +17,7 @@ void exe(char *inst, const char *argArr[], char *prompt,int mode)
     if (child_pid == 0)
     {
         /* This is done by the child process. */
-        execv(inst, argArr);
+        execvp(inst, argArr);
 
         /* If execv returns, it must have failed. */
 
